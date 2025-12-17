@@ -23,7 +23,7 @@ description: >-
 
   • Dust Attack Detection - Find suspicious tiny UTXOs that may be tracking attempts
 
-  • Address Lookup - Check balances and UTXOs for any address
+  • Address Lookup - Check balances and UTXOs for any address (requires Electrs)
 
 
   PRIVACY FIRST:
@@ -35,12 +35,13 @@ description: >-
 
   • Bitcoin Node (required) - Must have txindex=1 enabled
 
-  • Electrs (recommended) - Enables address lookups and forward tracing
+  • Electrs (highly recommended) - Required for address lookups, balance checking, dust detection, and forward UTXO tracing. Install Electrs first for full functionality!
 
 developer: ChainForensics
 website: https://github.com/plebnet-dev/chainforensics-umbrel
 dependencies:
   - bitcoin
+  - electrs
 repo: https://github.com/plebnet-dev/chainforensics-umbrel
 support: https://github.com/plebnet-dev/chainforensics-umbrel/issues
 port: 3010
