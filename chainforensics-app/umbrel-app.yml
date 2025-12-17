@@ -45,7 +45,7 @@ dependencies:
 repo: https://github.com/plebnet-dev/chainforensics-umbrel
 support: https://github.com/plebnet-dev/chainforensics-umbrel/issues
 port: 3010
-icons: ./icon.svg
+icons: https://github.com/manic-startup/chainforensics-umbrel/blob/main/chainforensics-app/icon.svg
 gallery:
   - 1.jpg
   - 2.jpg
