@@ -1,0 +1,57 @@
+manifestVersion: 1
+id: chainforensics-app
+category: bitcoin
+name: ChainForensics
+version: "1.0.0"
+tagline: Bitcoin blockchain analysis & privacy scoring
+description: >-
+  ChainForensics is a privacy-focused Bitcoin blockchain analysis tool that runs 
+  entirely on your own node.
+
+
+  FEATURES:
+
+  • Transaction Analysis - View complete transaction details, inputs, outputs, and fees
+
+  • UTXO Tracing - Follow the money trail forward or backward through the blockchain
+
+  • CoinJoin Detection - Identify Whirlpool, Wasabi, and JoinMarket transactions
+
+  • Privacy Scoring - Rate how private your UTXOs are
+
+  • KYC Privacy Check - See if your exchange withdrawal can be traced to your current holdings
+
+  • Dust Attack Detection - Find suspicious tiny UTXOs that may be tracking attempts
+
+  • Address Lookup - Check balances and UTXOs for any address
+
+
+  PRIVACY FIRST:
+
+  All analysis runs locally on your node. No external servers, no tracking, no data leaves your network.
+
+
+  REQUIREMENTS:
+
+  • Bitcoin Node (required) - Must have txindex=1 enabled
+
+  • Electrs (recommended) - Enables address lookups and forward tracing
+
+developer: ChainForensics
+website: https://github.com/plebnet-dev/chainforensics-umbrel
+dependencies:
+  - bitcoin
+repo: https://github.com/plebnet-dev/chainforensics-umbrel
+support: https://github.com/plebnet-dev/chainforensics-umbrel/issues
+port: 3010
+gallery:
+  - 1.jpg
+  - 2.jpg
+  - 3.jpg
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+torOnly: false
+releaseNotes: >-
+  Initial release with transaction analysis, UTXO tracing, CoinJoin detection, 
+  privacy scoring, KYC privacy checking, and dust attack detection.
