@@ -1,6 +1,2 @@
 id: chainforensics
 name: ChainForensics App Store
-icons:
-  - src: ./icon.svg
-    sizes: "256x256"
-    type: "image/svg+xml"
