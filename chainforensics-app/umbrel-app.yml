@@ -2,7 +2,7 @@ manifestVersion: 1
 id: chainforensics-app
 category: bitcoin
 name: ChainForensics
-version: "1.0.0"
+version: "1.0.1"
 tagline: Bitcoin blockchain analysis & privacy scoring
 description: >-
   ChainForensics is a privacy-focused Bitcoin blockchain analysis tool that runs 
@@ -54,5 +54,6 @@ defaultUsername: ""
 defaultPassword: ""
 torOnly: false
 releaseNotes: >-
-  Initial release with transaction analysis, UTXO tracing, CoinJoin detection, 
-  privacy scoring, KYC privacy checking, and dust attack detection.
+  v1.0.1 - Fixed Electrs connection stability. Added automatic retry logic (3 attempts) 
+  when Electrs connection drops. Now shows warning if lookups fail during trace. 
+  Results should be consistent between runs.

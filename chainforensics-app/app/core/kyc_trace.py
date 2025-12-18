@@ -210,6 +210,7 @@ class KYCPrivacyTracer:
         self._tx_cache: Dict[str, Dict] = {}
         self._electrs = None
         self._electrs_checked = False
+        self._electrs_failures = 0  # Track Electrs failures during trace
     
     async def _get_electrs(self):
         """Lazy load Electrs client."""
@@ -435,7 +436,9 @@ class KYCPrivacyTracer:
             
             return None
         except Exception as e:
-            logger.debug(f"Error finding spending tx: {e}")
+            logger.warning(f"Error finding spending tx for {txid}:{vout}: {e}")
+            # Track this failure for reporting
+            self._electrs_failures = getattr(self, '_electrs_failures', 0) + 1
             return None
     
     async def trace_kyc_withdrawal(
@@ -456,6 +459,7 @@ class KYCPrivacyTracer:
             KYCTraceResult with probable destinations and privacy analysis
         """
         start_time = datetime.utcnow()
+        self._electrs_failures = 0  # Reset failure counter for this trace
         
         # Get depth from preset
         preset = self.DEPTH_PRESETS.get(depth_preset, self.DEPTH_PRESETS["standard"])
@@ -701,6 +705,12 @@ class KYCPrivacyTracer:
         destinations.sort(key=lambda d: d.confidence_score, reverse=True)
         result.probable_destinations = destinations
         result.coinjoins_encountered = len(coinjoin_txids)
+        
+        # Check for Electrs failures during trace
+        electrs_failures = getattr(self, '_electrs_failures', 0)
+        if electrs_failures > 0:
+            result.warnings.append(f"Electrs connection issues: {electrs_failures} lookup(s) failed - results may be incomplete")
+            self._electrs_failures = 0  # Reset counter
         
         # Calculate overall privacy score
         result.overall_privacy_score = self._calculate_overall_privacy(result)

@@ -112,6 +112,9 @@ class ElectrsClient:
     Reference: https://electrumx.readthedocs.io/en/latest/protocol-methods.html
     """
     
+    MAX_RETRIES = 3
+    RETRY_DELAY = 1.0  # seconds
+    
     def __init__(self, host: str = None, port: int = None):
         self.host = host or settings.ELECTRS_HOST
         self.port = port or settings.ELECTRS_PORT
@@ -120,20 +123,26 @@ class ElectrsClient:
         self._request_id = 0
         self._lock = asyncio.Lock()
         self._connected = False
+        self._last_successful_call = None
     
     @property
     def is_configured(self) -> bool:
         """Check if Electrs is configured."""
         return bool(self.host and self.port)
     
-    async def connect(self) -> bool:
+    async def connect(self, force_reconnect: bool = False) -> bool:
         """Connect to Electrs server."""
         if not self.is_configured:
             logger.warning("Electrs not configured (ELECTRS_HOST not set)")
             return False
         
-        if self._connected and self._writer and not self._writer.is_closing():
+        # Check if we need to reconnect
+        if not force_reconnect and self._connected and self._writer and not self._writer.is_closing():
             return True
+        
+        # Close existing connection if any
+        if self._writer:
+            await self.disconnect()
         
         try:
             self._reader, self._writer = await asyncio.wait_for(
@@ -154,6 +163,7 @@ class ElectrsClient:
     
     async def disconnect(self):
         """Disconnect from Electrs server."""
+        self._connected = False
         if self._writer:
             try:
                 self._writer.close()
@@ -162,13 +172,32 @@ class ElectrsClient:
                 pass
         self._reader = None
         self._writer = None
-        self._connected = False
     
     async def _call(self, method: str, params: List = None) -> Any:
-        """Make JSON-RPC call to Electrs."""
+        """Make JSON-RPC call to Electrs with automatic retry."""
         if params is None:
             params = []
         
+        last_error = None
+        
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                return await self._call_once(method, params)
+            except ElectrsError as e:
+                last_error = e
+                logger.warning(f"Electrs call failed (attempt {attempt + 1}/{self.MAX_RETRIES}): {e}")
+                
+                # Disconnect and wait before retry
+                await self.disconnect()
+                
+                if attempt < self.MAX_RETRIES - 1:
+                    await asyncio.sleep(self.RETRY_DELAY * (attempt + 1))
+        
+        # All retries failed
+        raise last_error or ElectrsError(-1, "All retries failed")
+    
+    async def _call_once(self, method: str, params: List) -> Any:
+        """Make a single JSON-RPC call to Electrs."""
         async with self._lock:
             # Ensure connected
             if not await self.connect():
@@ -206,12 +235,14 @@ class ElectrsClient:
                         error.get("message", "Unknown error")
                     )
                 
+                self._last_successful_call = asyncio.get_event_loop().time()
                 return response.get("result")
                 
             except asyncio.TimeoutError:
                 await self.disconnect()
                 raise ElectrsError(-1, "Request timed out")
             except json.JSONDecodeError as e:
+                await self.disconnect()
                 raise ElectrsError(-1, f"Invalid JSON response: {e}")
             except Exception as e:
                 if isinstance(e, ElectrsError):
