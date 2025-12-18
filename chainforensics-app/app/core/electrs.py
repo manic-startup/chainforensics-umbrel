@@ -145,8 +145,9 @@ class ElectrsClient:
             await self.disconnect()
         
         try:
+            # Use large buffer limit (16MB) for addresses with many transactions
             self._reader, self._writer = await asyncio.wait_for(
-                asyncio.open_connection(self.host, self.port),
+                asyncio.open_connection(self.host, self.port, limit=16*1024*1024),
                 timeout=10.0
             )
             self._connected = True
@@ -217,10 +218,10 @@ class ElectrsClient:
                 self._writer.write(request_line.encode())
                 await self._writer.drain()
                 
-                # Read response
+                # Read response (increased timeout for large responses)
                 response_line = await asyncio.wait_for(
                     self._reader.readline(),
-                    timeout=30.0
+                    timeout=60.0
                 )
                 
                 if not response_line:

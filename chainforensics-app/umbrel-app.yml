@@ -2,7 +2,7 @@ manifestVersion: 1
 id: chainforensics-app
 category: bitcoin
 name: ChainForensics
-version: "1.0.3"
+version: "1.0.4"
 tagline: Bitcoin blockchain analysis & privacy scoring
 description: >-
   ChainForensics is a privacy-focused Bitcoin blockchain analysis tool that runs 
@@ -54,6 +54,6 @@ defaultUsername: ""
 defaultPassword: ""
 torOnly: false
 releaseNotes: >-
-  v1.0.3 - Fixed NoneType errors. Added comprehensive null checks for all Electrs 
-  responses (get_history, get_mempool, get_utxos, get_transaction). Now handles 
-  connection failures gracefully without crashing or giving wrong results.
+  v1.0.4 - Fixed buffer limit error for addresses with many transactions. Increased 
+  Electrs connection buffer from 64KB to 16MB. Increased read timeout to 60s. Fixes 
+  'Separator is not found, and chunk exceed the limit' errors in UTXO Tracing and Timeline.
