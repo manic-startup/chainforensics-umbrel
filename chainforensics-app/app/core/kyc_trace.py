@@ -431,6 +431,10 @@ class KYCPrivacyTracer:
         try:
             history = await electrs.get_history(address)
             
+            # Check if history is valid
+            if not history or not isinstance(history, list):
+                return None
+            
             for hist_tx in history:
                 if hist_tx.txid == txid:
                     continue

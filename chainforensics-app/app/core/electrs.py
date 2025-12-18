@@ -482,8 +482,14 @@ class ElectrsClient:
         scripthash = self.address_to_scripthash(address)
         result = await self._call("blockchain.scripthash.get_history", [scripthash])
         
+        # Handle None or invalid result
+        if not result or not isinstance(result, list):
+            return []
+        
         transactions = []
         for item in result:
+            if not isinstance(item, dict):
+                continue
             transactions.append(AddressTransaction(
                 txid=item.get("tx_hash"),
                 height=item.get("height", 0),
@@ -497,8 +503,14 @@ class ElectrsClient:
         scripthash = self.address_to_scripthash(address)
         result = await self._call("blockchain.scripthash.get_mempool", [scripthash])
         
+        # Handle None or invalid result
+        if not result or not isinstance(result, list):
+            return []
+        
         transactions = []
         for item in result:
+            if not isinstance(item, dict):
+                continue
             transactions.append(AddressTransaction(
                 txid=item.get("tx_hash"),
                 height=0,
@@ -512,8 +524,14 @@ class ElectrsClient:
         scripthash = self.address_to_scripthash(address)
         result = await self._call("blockchain.scripthash.listunspent", [scripthash])
         
+        # Handle None or invalid result
+        if not result or not isinstance(result, list):
+            return []
+        
         utxos = []
         for item in result:
+            if not isinstance(item, dict):
+                continue
             utxos.append(AddressUTXO(
                 txid=item.get("tx_hash"),
                 vout=item.get("tx_pos"),
@@ -599,6 +617,10 @@ class ElectrsClient:
         
         # Get all transactions for this address
         history = await self.get_history(address)
+        
+        # Check if history is valid
+        if not history:
+            return None
         
         # Look for a transaction that spends this output
         # This requires checking each transaction's inputs
