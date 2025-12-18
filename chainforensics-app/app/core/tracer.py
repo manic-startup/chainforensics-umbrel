@@ -163,13 +163,23 @@ class UTXOTracer:
     async def _get_transaction(self, txid: str) -> Optional[Dict]:
         """Get transaction with caching."""
         if txid in self._tx_cache:
-            return self._tx_cache[txid]
+            cached = self._tx_cache[txid]
+            # Validate cached data is a dict, not a string
+            if isinstance(cached, dict):
+                return cached
+            else:
+                del self._tx_cache[txid]
         
         try:
             tx = await self.rpc.get_raw_transaction(txid, True)
-            if tx:
+            # Validate response is a dict (not a hex string)
+            if tx and isinstance(tx, dict):
                 self._tx_cache[txid] = tx
-            return tx
+                return tx
+            elif tx and isinstance(tx, str):
+                logger.warning(f"Got hex string instead of dict for tx {txid}")
+                return None
+            return None
         except Exception as e:
             logger.warning(f"Failed to fetch transaction {txid}: {e}")
             return None
@@ -287,7 +297,7 @@ class UTXOTracer:
                 continue
             
             tx = await self._get_transaction(current_txid)
-            if not tx:
+            if not tx or not isinstance(tx, dict):
                 result.warnings.append(f"Transaction not found: {current_txid}")
                 continue
             
@@ -343,7 +353,7 @@ class UTXOTracer:
                     if spending_txid:
                         # Found the spending transaction! Add it to queue
                         spending_tx = await self._get_transaction(spending_txid)
-                        if spending_tx:
+                        if spending_tx and isinstance(spending_tx, dict):
                             # Find which vin spent our output
                             for i, vin in enumerate(spending_tx.get("vin", [])):
                                 if vin.get("txid") == current_txid and vin.get("vout") == current_vout:
@@ -441,7 +451,7 @@ class UTXOTracer:
                 continue
             
             tx = await self._get_transaction(current_txid)
-            if not tx:
+            if not tx or not isinstance(tx, dict):
                 result.warnings.append(f"Transaction not found: {current_txid}")
                 continue
             

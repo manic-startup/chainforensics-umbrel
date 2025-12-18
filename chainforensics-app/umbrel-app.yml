@@ -2,7 +2,7 @@ manifestVersion: 1
 id: chainforensics-app
 category: bitcoin
 name: ChainForensics
-version: "1.0.1"
+version: "1.0.2"
 tagline: Bitcoin blockchain analysis & privacy scoring
 description: >-
   ChainForensics is a privacy-focused Bitcoin blockchain analysis tool that runs 
@@ -54,6 +54,7 @@ defaultUsername: ""
 defaultPassword: ""
 torOnly: false
 releaseNotes: >-
-  v1.0.1 - Fixed Electrs connection stability. Added automatic retry logic (3 attempts) 
-  when Electrs connection drops. Now shows warning if lookups fail during trace. 
-  Results should be consistent between runs.
+  v1.0.2 - CRITICAL FIX: Fixed 'str object has no attribute get' error that caused 
+  inconsistent/wrong results. Electrs sometimes returns hex strings instead of parsed 
+  data - now properly detected and handled. Added retry logic (3 attempts) for Electrs 
+  connections. Results should now be consistent between runs.

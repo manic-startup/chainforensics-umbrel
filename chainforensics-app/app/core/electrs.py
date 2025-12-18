@@ -525,9 +525,18 @@ class ElectrsClient:
     
     # ============== Transaction Methods ==============
     
-    async def get_transaction(self, txid: str, verbose: bool = True) -> Dict:
+    async def get_transaction(self, txid: str, verbose: bool = True) -> Optional[Dict]:
         """Get raw transaction."""
-        return await self._call("blockchain.transaction.get", [txid, verbose])
+        result = await self._call("blockchain.transaction.get", [txid, verbose])
+        
+        # Validate response is a dict (not a hex string)
+        if isinstance(result, dict):
+            return result
+        elif isinstance(result, str):
+            # Electrs returned hex string - verbose mode may not be supported
+            logger.warning(f"Electrs returned hex string for {txid}, verbose mode may not be supported")
+            return None
+        return result
     
     async def broadcast_transaction(self, raw_tx_hex: str) -> str:
         """Broadcast a raw transaction. Returns txid."""
@@ -573,7 +582,8 @@ class ElectrsClient:
         # First, get the transaction to find the output address
         tx = await self.get_transaction(txid, verbose=True)
         
-        if not tx or "vout" not in tx:
+        # Validate tx is a dict with expected structure
+        if not tx or not isinstance(tx, dict) or "vout" not in tx:
             return None
         
         if vout >= len(tx["vout"]):
@@ -598,10 +608,13 @@ class ElectrsClient:
             
             try:
                 full_tx = await self.get_transaction(hist_tx.txid, verbose=True)
-                if not full_tx:
+                # Validate response is a dict
+                if not full_tx or not isinstance(full_tx, dict):
                     continue
                 
                 for vin in full_tx.get("vin", []):
+                    if vin.get("txid") == txid and vin.get("vout") == vout:
+                        return hist_tx.txid
                     if vin.get("txid") == txid and vin.get("vout") == vout:
                         return hist_tx.txid
             except Exception:

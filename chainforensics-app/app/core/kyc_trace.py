@@ -231,13 +231,25 @@ class KYCPrivacyTracer:
     async def _get_transaction(self, txid: str) -> Optional[Dict]:
         """Get transaction with caching."""
         if txid in self._tx_cache:
-            return self._tx_cache[txid]
+            cached = self._tx_cache[txid]
+            # Validate cached data is a dict, not a string
+            if isinstance(cached, dict):
+                return cached
+            else:
+                # Invalid cached data, remove it
+                del self._tx_cache[txid]
         
         try:
             tx = await self.rpc.get_raw_transaction(txid, True)
-            if tx:
+            # Validate response is a dict (not a hex string)
+            if tx and isinstance(tx, dict):
                 self._tx_cache[txid] = tx
-            return tx
+                return tx
+            elif tx and isinstance(tx, str):
+                # Got hex string instead of dict - verbose mode may have failed
+                logger.warning(f"Got hex string instead of dict for tx {txid}")
+                return None
+            return None
         except Exception as e:
             logger.warning(f"Failed to fetch transaction {txid}: {e}")
             return None
@@ -425,11 +437,12 @@ class KYCPrivacyTracer:
                 
                 try:
                     full_tx = await self._get_transaction(hist_tx.txid)
-                    if not full_tx:
+                    # Double-check it's a dict (not string/None)
+                    if not full_tx or not isinstance(full_tx, dict):
                         continue
                     
                     for vin in full_tx.get("vin", []):
-                        if vin.get("txid") == txid and vin.get("vout") == vout:
+                        if isinstance(vin, dict) and vin.get("txid") == txid and vin.get("vout") == vout:
                             return hist_tx.txid
                 except Exception:
                     continue
@@ -481,7 +494,7 @@ class KYCPrivacyTracer:
         
         # Get the initial transaction
         tx = await self._get_transaction(exchange_txid)
-        if not tx:
+        if not tx or not isinstance(tx, dict):
             result.warnings.append(f"Transaction not found: {exchange_txid}")
             result.summary = "Could not find the exchange transaction"
             return result
@@ -548,7 +561,7 @@ class KYCPrivacyTracer:
             
             # Get transaction
             tx = await self._get_transaction(current_txid)
-            if not tx:
+            if not tx or not isinstance(tx, dict):
                 continue
             
             tx_count += 1
@@ -655,7 +668,7 @@ class KYCPrivacyTracer:
                     
                     if spending_txid:
                         spending_tx = await self._get_transaction(spending_txid)
-                        if spending_tx:
+                        if spending_tx and isinstance(spending_tx, dict):
                             # Add all outputs of spending tx to queue
                             for out_idx, out in enumerate(spending_tx.get("vout", [])):
                                 out_value = int(out.get("value", 0) * 100_000_000)
