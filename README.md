@@ -1,4 +1,4 @@
-# ChainForensics Umbrel Community App Store
+# ChainForensics Umbrel Community App Store v1.2.0
 
 This is a community app store for Umbrel containing ChainForensics - a privacy-focused Bitcoin blockchain analysis tool.
 
