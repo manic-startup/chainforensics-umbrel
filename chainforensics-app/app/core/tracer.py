@@ -133,6 +133,8 @@ class UTXOTracer:
     # Safety limits
     MAX_TRANSACTIONS_PER_TRACE = 200
     MAX_QUEUE_SIZE = 1000
+    MAX_CONSECUTIVE_ELECTRS_FAILURES = 3  # Stop using Electrs after 3 failures (was 5)
+    MAX_TRACE_TIME_SECONDS = 60  # 60 second overall timeout (was 240s)
     
     def __init__(self, rpc: BitcoinRPC = None):
         self.rpc = rpc or get_rpc()
@@ -231,13 +233,37 @@ class UTXOTracer:
         """Use Electrs to find the transaction that spent this output."""
         electrs = await self._get_electrs()
         if not electrs:
+            logger.debug("_find_spending_tx_electrs: No electrs client")
             return None
         
         try:
-            spending_txid = await electrs.find_spending_tx(txid, vout)
+            logger.debug(f"_find_spending_tx_electrs: Starting lookup for {txid[:16]}...:{vout}")
+            # Reduced timeout to 30s - if Electrs doesn't respond quickly, it's probably stuck
+            spending_txid = await asyncio.wait_for(
+                electrs.find_spending_tx(txid, vout),
+                timeout=30.0  # 30 second timeout per lookup (was 120s)
+            )
+            if spending_txid:
+                logger.debug(f"_find_spending_tx_electrs: Found spending tx {spending_txid[:16]}...")
+            else:
+                logger.debug(f"_find_spending_tx_electrs: No spending tx found (UTXO may be unspent or lookup failed)")
             return spending_txid
+        except asyncio.TimeoutError:
+            logger.warning(f"_find_spending_tx_electrs: TIMEOUT after 30s for {txid[:16]}...:{vout}")
+            # Force reconnection after timeout - the connection is likely corrupted
+            logger.warning("_find_spending_tx_electrs: Forcing Electrs reconnection due to timeout")
+            try:
+                await electrs.disconnect()
+            except:
+                pass
+            return None
         except Exception as e:
-            logger.debug(f"Electrs spending tx lookup failed: {e}")
+            logger.warning(f"_find_spending_tx_electrs: EXCEPTION for {txid[:16]}...:{vout}: {type(e).__name__}: {e}")
+            # Force reconnection after any exception too
+            try:
+                await electrs.disconnect()
+            except:
+                pass
             return None
     
     async def trace_forward(
@@ -253,9 +279,13 @@ class UTXOTracer:
         With Electrs: Can find spending transactions and follow the full chain.
         Without Electrs: Can only identify if UTXO is spent, not where it went.
         """
+        logger.info(f"=== TRACE FORWARD START === txid={txid[:16]}..., vout={vout}")
+        
         if max_depth is None:
             max_depth = settings.DEFAULT_TRACE_DEPTH
         max_depth = min(max_depth, settings.MAX_TRACE_DEPTH)
+        
+        logger.info(f"Max depth: {max_depth}, Max transactions: {self.MAX_TRANSACTIONS_PER_TRACE}, Timeout: {self.MAX_TRACE_TIME_SECONDS}s")
         
         start_time = datetime.utcnow()
         result = TraceResult(
@@ -266,8 +296,10 @@ class UTXOTracer:
         )
         
         # Check if Electrs is available
+        logger.info("Checking Electrs availability...")
         electrs = await self._get_electrs()
         result.electrs_enabled = electrs is not None
+        logger.info(f"Electrs enabled: {result.electrs_enabled}")
         
         if not result.electrs_enabled:
             result.warnings.append(
@@ -279,9 +311,28 @@ class UTXOTracer:
         queue: List[Tuple[str, int, int]] = [(txid, vout, 0)]
         visited: Set[Tuple[str, int]] = set()
         tx_count = 0
+        consecutive_electrs_failures = 0
+        electrs_disabled = False
+        electrs_lookup_count = 0
+        electrs_success_count = 0
+        
+        logger.info("Starting trace loop...")
         
         while queue and tx_count < self.MAX_TRANSACTIONS_PER_TRACE:
+            # Check overall timeout
+            elapsed = (datetime.utcnow() - start_time).total_seconds()
+            if elapsed > self.MAX_TRACE_TIME_SECONDS:
+                logger.warning(f"TIMEOUT after {elapsed:.1f}s - tx_count={tx_count}, queue_size={len(queue)}, visited={len(visited)}")
+                result.warnings.append(f"Trace timeout ({self.MAX_TRACE_TIME_SECONDS}s) reached - returning partial results")
+                result.hit_limit = True
+                break
+            
+            # Log progress every 10 transactions
+            if tx_count > 0 and tx_count % 10 == 0:
+                logger.info(f"Progress: tx_count={tx_count}, queue_size={len(queue)}, visited={len(visited)}, elapsed={elapsed:.1f}s, electrs_lookups={electrs_lookup_count}, electrs_success={electrs_success_count}")
+            
             if len(queue) > self.MAX_QUEUE_SIZE:
+                logger.warning(f"Queue size {len(queue)} exceeded limit {self.MAX_QUEUE_SIZE}")
                 result.warnings.append(f"Queue size exceeded {self.MAX_QUEUE_SIZE}, truncating")
                 result.hit_limit = True
                 queue = queue[:self.MAX_QUEUE_SIZE]
@@ -293,11 +344,13 @@ class UTXOTracer:
             visited.add((current_txid, current_vout))
             
             if depth > max_depth:
+                logger.debug(f"Depth limit {max_depth} reached at {current_txid[:16]}...:{current_vout}")
                 result.warnings.append(f"Depth limit reached at {current_txid}:{current_vout}")
                 continue
             
             tx = await self._get_transaction(current_txid)
             if not tx or not isinstance(tx, dict):
+                logger.warning(f"Transaction not found or invalid: {current_txid[:16]}...")
                 result.warnings.append(f"Transaction not found: {current_txid}")
                 continue
             
@@ -347,10 +400,20 @@ class UTXOTracer:
                 spending_txid = None
                 spending_vin = None
                 
-                if electrs and address and depth < max_depth:
+                if electrs and address and depth < max_depth and not electrs_disabled:
+                    electrs_lookup_count += 1
+                    lookup_start = datetime.utcnow()
+                    logger.debug(f"Electrs lookup #{electrs_lookup_count} for {current_txid[:16]}...:{current_vout} (address={address[:20]}...)")
+                    
                     spending_txid = await self._find_spending_tx_electrs(current_txid, current_vout, address)
                     
+                    lookup_time = (datetime.utcnow() - lookup_start).total_seconds()
+                    
                     if spending_txid:
+                        electrs_success_count += 1
+                        consecutive_electrs_failures = 0  # Reset on success
+                        logger.debug(f"Electrs lookup SUCCESS in {lookup_time:.2f}s - found {spending_txid[:16]}...")
+                        
                         # Found the spending transaction! Add it to queue
                         spending_tx = await self._get_transaction(spending_txid)
                         if spending_tx and isinstance(spending_tx, dict):
@@ -373,6 +436,18 @@ class UTXOTracer:
                             for out_idx, out in enumerate(spending_tx.get("vout", [])):
                                 if (spending_txid, out_idx) not in visited:
                                     queue.append((spending_txid, out_idx, depth + 1))
+                    else:
+                        # Electrs lookup failed
+                        consecutive_electrs_failures += 1
+                        logger.warning(f"Electrs lookup FAILED in {lookup_time:.2f}s - consecutive failures: {consecutive_electrs_failures}")
+                        
+                        if consecutive_electrs_failures >= self.MAX_CONSECUTIVE_ELECTRS_FAILURES:
+                            electrs_disabled = True
+                            logger.error(f"Electrs DISABLED after {consecutive_electrs_failures} consecutive failures")
+                            result.warnings.append(
+                                f"Electrs disabled after {consecutive_electrs_failures} consecutive failures - "
+                                "continuing without forward tracing"
+                            )
                 
                 node = UTXONode(
                     txid=current_txid,
@@ -400,6 +475,19 @@ class UTXOTracer:
         
         result.total_transactions = tx_count
         result.execution_time_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        
+        logger.info(f"=== TRACE FORWARD COMPLETE ===")
+        logger.info(f"  Total time: {result.execution_time_ms}ms")
+        logger.info(f"  Transactions processed: {tx_count}")
+        logger.info(f"  Nodes found: {len(result.nodes)}")
+        logger.info(f"  Edges found: {len(result.edges)}")
+        logger.info(f"  Unspent endpoints: {len(result.unspent_endpoints)}")
+        logger.info(f"  Electrs lookups: {electrs_lookup_count}, successes: {electrs_success_count}")
+        logger.info(f"  Electrs disabled: {electrs_disabled}")
+        logger.info(f"  Warnings: {len(result.warnings)}")
+        if result.warnings:
+            for w in result.warnings[:5]:
+                logger.info(f"    - {w[:100]}...")
         
         return result
     

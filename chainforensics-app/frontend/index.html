@@ -278,7 +278,7 @@
                 <div class="stat-card"><div class="stat-value" id="chain-type">-</div><div class="stat-label">Network</div></div>
                 <div class="stat-card"><div class="stat-value" id="sync-progress">-</div><div class="stat-label">Sync Progress</div></div>
                 <div class="stat-card"><div class="stat-value" id="api-status">-</div><div class="stat-label">API Status</div></div>
-                <div class="stat-card"><div class="stat-value" id="electrs-status">-</div><div class="stat-label">Electrs</div></div>
+                <div class="stat-card"><div class="stat-value" id="electrs-status">-</div><div class="stat-label">Electrs</div><div id="electrs-warning" style="display:none; font-size: 10px; color: var(--accent-orange); margin-top: 4px;"></div></div>
             </div>
             <div id="results-container">
                 <div class="card"><div class="card-header"><div class="card-title">📋 Analysis Results</div></div><div class="card-body"><p style="color: var(--text-secondary); text-align: center; padding: 40px;">Enter a transaction ID and click "Analyze Transaction" to begin,<br>or use the <strong>KYC Privacy Check</strong> to see if your exchange withdrawal can be traced.</p></div></div>
@@ -342,9 +342,31 @@
                 if (health.components && health.components.electrs) {
                     const electrs = health.components.electrs;
                     const el = document.getElementById('electrs-status');
-                    if (electrs.status === 'connected') { el.textContent = 'Connected'; el.style.color = 'var(--accent-green)'; }
-                    else if (electrs.status === 'not_configured') { el.textContent = 'Not configured'; el.style.color = 'var(--text-secondary)'; }
-                    else { el.textContent = 'Offline'; el.style.color = 'var(--accent-orange)'; }
+                    const warningEl = document.getElementById('electrs-warning');
+                    
+                    if (electrs.status === 'connected') { 
+                        el.textContent = 'Connected'; 
+                        el.style.color = 'var(--accent-green)'; 
+                        if (warningEl) warningEl.style.display = 'none';
+                    }
+                    else if (electrs.status === 'degraded') { 
+                        el.textContent = 'Degraded'; 
+                        el.style.color = 'var(--accent-orange)'; 
+                        if (warningEl) {
+                            warningEl.style.display = 'block';
+                            warningEl.textContent = '⚠️ Verbose mode not working - restart Electrs';
+                        }
+                    }
+                    else if (electrs.status === 'not_configured') { 
+                        el.textContent = 'Not configured'; 
+                        el.style.color = 'var(--text-secondary)'; 
+                        if (warningEl) warningEl.style.display = 'none';
+                    }
+                    else { 
+                        el.textContent = 'Offline'; 
+                        el.style.color = 'var(--accent-orange)'; 
+                        if (warningEl) warningEl.style.display = 'none';
+                    }
                 }
             } catch (e) {
                 document.getElementById('status-dot').classList.add('disconnected');
@@ -564,7 +586,7 @@
             
             html += '<div class="card"><div class="card-header"><div class="card-title">🔎 Trace Results (' + dir + ')</div></div><div class="card-body">';
             if (result.nodes && result.nodes.length > 0) {
-                html += '<table class="io-table"><thead><tr><th>Depth</th><th>TXID</th><th>Value</th><th>Status</th><th>CoinJoin</th></tr></thead><tbody>';
+                html += '<table class="io-table"><thead><tr><th>Depth</th><th>TXID</th><th>Address</th><th>Value</th><th>Status</th><th>CoinJoin</th></tr></thead><tbody>';
                 var nodes = result.nodes.slice(0, 50);
                 for (var i = 0; i < nodes.length; i++) {
                     var n = nodes[i];
@@ -577,7 +599,9 @@
                     } else {
                         cjBadge = '<span class="cj-badge low">No</span>';
                     }
+                    var addrDisplay = n.address ? (n.address.substring(0, 12) + '...' + n.address.slice(-6)) : '-';
                     html += '<tr><td>' + n.depth + '</td><td class="mono">' + n.txid.substring(0, 16) + '...</td>';
+                    html += '<td class="mono" title="' + (n.address || '') + '">' + addrDisplay + '</td>';
                     html += '<td>' + (n.value_btc ? n.value_btc.toFixed(8) : '?') + ' BTC</td><td>' + statusIcon + '</td><td>' + cjBadge + '</td></tr>';
                 }
                 html += '</tbody></table>';

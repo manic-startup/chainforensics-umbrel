@@ -6,12 +6,87 @@ import asyncio
 import hashlib
 import json
 import logging
+import time
 from typing import Any, Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from collections import deque
 
 from app.config import settings
 
 logger = logging.getLogger("chainforensics.electrs")
+
+
+class ElectrsHealthTracker:
+    """Tracks Electrs operational health over time."""
+    
+    FAILURE_WINDOW_SECONDS = 300  # Track failures for 5 minutes
+    CLEAR_AFTER_SECONDS = 180  # Clear warning after 3 minutes of no failures
+    
+    def __init__(self):
+        self._failures: deque = deque()  # List of failure timestamps
+        self._last_success: Optional[float] = None
+        self._lock = asyncio.Lock()
+    
+    async def record_failure(self, error_msg: str = ""):
+        """Record an Electrs operation failure."""
+        async with self._lock:
+            now = time.time()
+            self._failures.append((now, error_msg))
+            self._cleanup_old_failures()
+    
+    async def record_success(self):
+        """Record a successful Electrs operation."""
+        async with self._lock:
+            self._last_success = time.time()
+    
+    def _cleanup_old_failures(self):
+        """Remove failures older than the tracking window."""
+        cutoff = time.time() - self.FAILURE_WINDOW_SECONDS
+        while self._failures and self._failures[0][0] < cutoff:
+            self._failures.popleft()
+    
+    async def get_status(self) -> Dict:
+        """Get current Electrs health status."""
+        async with self._lock:
+            self._cleanup_old_failures()
+            now = time.time()
+            
+            failure_count = len(self._failures)
+            recent_errors = [err for ts, err in list(self._failures)[-5:]]  # Last 5 errors
+            
+            # Calculate time since last failure
+            time_since_last_failure = None
+            if self._failures:
+                time_since_last_failure = now - self._failures[-1][0]
+            
+            # Determine if we should show a warning
+            # Show warning if there are failures in the window
+            # Clear warning if no failures for CLEAR_AFTER_SECONDS
+            show_warning = False
+            if failure_count > 0:
+                if time_since_last_failure is not None and time_since_last_failure < self.CLEAR_AFTER_SECONDS:
+                    show_warning = True
+            
+            return {
+                "failure_count_5min": failure_count,
+                "last_success": self._last_success,
+                "time_since_last_failure": time_since_last_failure,
+                "show_warning": show_warning,
+                "recent_errors": recent_errors,
+                "warning_message": "Electrs experiencing issues - you may need to restart the Electrs app" if show_warning else None
+            }
+
+
+# Global health tracker instance
+_health_tracker: Optional[ElectrsHealthTracker] = None
+
+
+def get_health_tracker() -> ElectrsHealthTracker:
+    """Get or create the health tracker instance."""
+    global _health_tracker
+    if _health_tracker is None:
+        _health_tracker = ElectrsHealthTracker()
+    return _health_tracker
 
 
 class ElectrsError(Exception):
@@ -164,15 +239,19 @@ class ElectrsClient:
     
     async def disconnect(self):
         """Disconnect from Electrs server."""
+        logger.debug("Electrs: Disconnecting...")
         self._connected = False
         if self._writer:
             try:
                 self._writer.close()
-                await self._writer.wait_closed()
-            except Exception:
-                pass
+                await asyncio.wait_for(self._writer.wait_closed(), timeout=2.0)
+            except asyncio.TimeoutError:
+                logger.warning("Electrs: Timeout waiting for writer to close")
+            except Exception as e:
+                logger.debug(f"Electrs: Error closing writer: {e}")
         self._reader = None
         self._writer = None
+        logger.debug("Electrs: Disconnected")
     
     async def _call(self, method: str, params: List = None) -> Any:
         """Make JSON-RPC call to Electrs with automatic retry."""
@@ -180,10 +259,14 @@ class ElectrsClient:
             params = []
         
         last_error = None
+        tracker = get_health_tracker()
         
         for attempt in range(self.MAX_RETRIES):
             try:
-                return await self._call_once(method, params)
+                result = await self._call_once(method, params)
+                # Record success
+                await tracker.record_success()
+                return result
             except ElectrsError as e:
                 last_error = e
                 logger.warning(f"Electrs call failed (attempt {attempt + 1}/{self.MAX_RETRIES}): {e}")
@@ -194,7 +277,9 @@ class ElectrsClient:
                 if attempt < self.MAX_RETRIES - 1:
                     await asyncio.sleep(self.RETRY_DELAY * (attempt + 1))
         
-        # All retries failed
+        # All retries failed - record failure
+        error_msg = str(last_error) if last_error else "All retries failed"
+        await tracker.record_failure(error_msg)
         raise last_error or ElectrsError(-1, "All retries failed")
     
     async def _call_once(self, method: str, params: List) -> Any:
@@ -481,11 +566,20 @@ class ElectrsClient:
     async def get_history(self, address: str) -> List[AddressTransaction]:
         """Get transaction history for an address."""
         scripthash = self.address_to_scripthash(address)
-        result = await self._call("blockchain.scripthash.get_history", [scripthash])
+        logger.info(f"get_history: Calling Electrs for address {address[:20]}... (connected={self._connected})")
+        
+        try:
+            result = await self._call("blockchain.scripthash.get_history", [scripthash])
+        except Exception as e:
+            logger.warning(f"get_history: _call failed with {type(e).__name__}: {e}")
+            return []
         
         # Handle None or invalid result
         if not result or not isinstance(result, list):
+            logger.warning(f"get_history: Got invalid result: {type(result).__name__}")
             return []
+        
+        logger.info(f"get_history: Got {len(result)} transactions")
         
         transactions = []
         for item in result:
@@ -546,16 +640,38 @@ class ElectrsClient:
     
     async def get_transaction(self, txid: str, verbose: bool = True) -> Optional[Dict]:
         """Get raw transaction."""
-        result = await self._call("blockchain.transaction.get", [txid, verbose])
+        max_attempts = 3
         
-        # Validate response is a dict (not a hex string)
-        if isinstance(result, dict):
+        for attempt in range(max_attempts):
+            try:
+                result = await self._call("blockchain.transaction.get", [txid, verbose])
+            except Exception as e:
+                logger.warning(f"get_transaction: _call failed: {e}")
+                return None
+            
+            # Validate response is a dict (not a hex string)
+            if isinstance(result, dict):
+                # Check if we got a non-verbose response when we asked for verbose
+                # Non-verbose response only has "height" and "hex"
+                if verbose and set(result.keys()) == {"height", "hex"}:
+                    logger.warning(f"get_transaction: Got non-verbose response for {txid[:16]}... (attempt {attempt + 1}/{max_attempts}) - Electrs may be in bad state")
+                    if attempt < max_attempts - 1:
+                        # Force reconnection and retry
+                        logger.warning("get_transaction: Forcing Electrs reconnection...")
+                        await self.disconnect()
+                        await asyncio.sleep(0.5)  # Brief pause before retry
+                        continue
+                    else:
+                        logger.error(f"get_transaction: Still getting non-verbose response after {max_attempts} attempts")
+                        return None
+                return result
+            elif isinstance(result, str):
+                # Electrs returned hex string - verbose mode may not be supported
+                logger.warning(f"Electrs returned hex string for {txid}, verbose mode may not be supported")
+                return None
             return result
-        elif isinstance(result, str):
-            # Electrs returned hex string - verbose mode may not be supported
-            logger.warning(f"Electrs returned hex string for {txid}, verbose mode may not be supported")
-            return None
-        return result
+        
+        return None
     
     async def broadcast_transaction(self, raw_tx_hex: str) -> str:
         """Broadcast a raw transaction. Returns txid."""
@@ -598,14 +714,19 @@ class ElectrsClient:
         
         This is the key feature that Bitcoin Core RPC cannot do without txindex!
         """
+        logger.info(f"find_spending_tx: START txid={txid[:16]}..., vout={vout}, connected={self._connected}")
+        
         # First, get the transaction to find the output address
+        logger.info(f"find_spending_tx: Getting source transaction...")
         tx = await self.get_transaction(txid, verbose=True)
         
         # Validate tx is a dict with expected structure
         if not tx or not isinstance(tx, dict) or "vout" not in tx:
+            logger.warning(f"find_spending_tx: Source tx invalid or not found (tx={type(tx).__name__})")
             return None
         
         if vout >= len(tx["vout"]):
+            logger.warning(f"find_spending_tx: vout {vout} out of range (tx has {len(tx['vout'])} outputs)")
             return None
         
         output = tx["vout"][vout]
@@ -613,21 +734,39 @@ class ElectrsClient:
         address = script_pubkey.get("address")
         
         if not address:
-            # Try to extract from asm for non-standard scripts
+            logger.warning(f"find_spending_tx: No address found for output")
             return None
         
+        logger.info(f"find_spending_tx: Output address is {address[:20]}...")
+        
         # Get all transactions for this address
+        logger.info(f"find_spending_tx: Getting address history...")
         history = await self.get_history(address)
         
         # Check if history is valid
         if not history:
+            logger.warning(f"find_spending_tx: No history returned for address (history={history})")
             return None
+        
+        logger.info(f"find_spending_tx: Address has {len(history)} transactions in history")
+        
+        # Limit how many transactions we check to avoid hanging on large addresses
+        MAX_HISTORY_CHECK = 200
+        if len(history) > MAX_HISTORY_CHECK:
+            logger.warning(f"find_spending_tx: Address has {len(history)} txs, limiting check to most recent {MAX_HISTORY_CHECK}")
+            # Sort by height descending (most recent first) and take the limit
+            history = sorted(history, key=lambda x: x.height if x.height > 0 else float('inf'), reverse=True)[:MAX_HISTORY_CHECK]
         
         # Look for a transaction that spends this output
         # This requires checking each transaction's inputs
+        checked_count = 0
         for hist_tx in history:
             if hist_tx.txid == txid:
                 continue  # Skip the original transaction
+            
+            checked_count += 1
+            if checked_count % 50 == 0:
+                logger.debug(f"find_spending_tx: Checked {checked_count}/{len(history)} transactions...")
             
             try:
                 full_tx = await self.get_transaction(hist_tx.txid, verbose=True)
@@ -637,12 +776,13 @@ class ElectrsClient:
                 
                 for vin in full_tx.get("vin", []):
                     if vin.get("txid") == txid and vin.get("vout") == vout:
+                        logger.debug(f"find_spending_tx: FOUND spending tx {hist_tx.txid[:16]}... after checking {checked_count} txs")
                         return hist_tx.txid
-                    if vin.get("txid") == txid and vin.get("vout") == vout:
-                        return hist_tx.txid
-            except Exception:
+            except Exception as e:
+                logger.debug(f"find_spending_tx: Error checking tx {hist_tx.txid[:16]}...: {e}")
                 continue
         
+        logger.debug(f"find_spending_tx: No spending tx found after checking {checked_count} transactions")
         return None  # Output is unspent or spending tx not found
     
     async def check_dust_attack(self, address: str, dust_threshold_sats: int = 1000) -> Dict:
@@ -719,14 +859,44 @@ async def check_electrs_connection() -> Dict:
         if await client.connect():
             version = await client.server_version()
             tip = await client.get_tip()
-            return {
-                "status": "connected",
+            
+            # Functional probe: Test if verbose transaction fetching works
+            # Use a well-known old transaction (Satoshi's first transaction to Hal Finney)
+            probe_txid = "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+            verbose_works = False
+            try:
+                # Direct call to test verbose mode
+                probe_result = await client._call("blockchain.transaction.get", [probe_txid, True])
+                if isinstance(probe_result, dict):
+                    # Check if we got verbose response (has vout) or non-verbose (only height, hex)
+                    if "vout" in probe_result:
+                        verbose_works = True
+                    elif set(probe_result.keys()) == {"height", "hex"}:
+                        logger.warning("Electrs health check: verbose mode not working (got non-verbose response)")
+                        verbose_works = False
+                    else:
+                        # Unknown format, assume it works
+                        verbose_works = True
+            except Exception as e:
+                logger.warning(f"Electrs health check: probe failed: {e}")
+                verbose_works = False
+            
+            status_result = {
+                "status": "connected" if verbose_works else "degraded",
                 "host": client.host,
                 "port": client.port,
                 "server": version.get("server_software") if isinstance(version, dict) else str(version),
                 "protocol": version.get("protocol_version") if isinstance(version, dict) else "1.4",
-                "tip_height": tip.get("height") if isinstance(tip, dict) else None
+                "tip_height": tip.get("height") if isinstance(tip, dict) else None,
+                "verbose_mode_working": verbose_works
             }
+            
+            if not verbose_works:
+                status_result["warning"] = "Electrs connected but verbose mode not working - may need restart"
+                # Force disconnect to trigger reconnection on next use
+                await client.disconnect()
+            
+            return status_result
     except Exception as e:
         logger.error(f"Electrs connection check failed: {e}")
         return {

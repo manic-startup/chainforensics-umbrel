@@ -212,6 +212,62 @@ async def api_health_check():
     return await get_health_data()
 
 
+@app.get("/api/v1/electrs-status")
+async def electrs_operational_status():
+    """
+    Get Electrs operational health status.
+    
+    This tracks actual operation success/failure, not just connectivity.
+    Use this to show warnings when Electrs is having issues.
+    """
+    from app.core.electrs import get_health_tracker
+    tracker = get_health_tracker()
+    return await tracker.get_status()
+
+
+@app.get("/api/v1/electrs-test/{txid}")
+async def electrs_test_transaction(txid: str):
+    """
+    Diagnostic endpoint to test what Electrs returns for a transaction.
+    This tests the actual Electrs connection used by the app.
+    """
+    from app.core.electrs import get_electrs
+    
+    electrs = get_electrs()
+    result = {
+        "txid": txid,
+        "connected": electrs._connected,
+        "writer_exists": electrs._writer is not None,
+        "writer_closing": electrs._writer.is_closing() if electrs._writer else None,
+    }
+    
+    try:
+        # Test raw call
+        raw_result = await electrs._call("blockchain.transaction.get", [txid, True])
+        result["raw_call_type"] = type(raw_result).__name__
+        result["raw_call_is_dict"] = isinstance(raw_result, dict)
+        if isinstance(raw_result, dict):
+            result["raw_call_keys"] = list(raw_result.keys())
+            result["raw_call_has_vout"] = "vout" in raw_result
+        else:
+            result["raw_call_preview"] = str(raw_result)[:200]
+    except Exception as e:
+        result["raw_call_error"] = f"{type(e).__name__}: {e}"
+    
+    try:
+        # Test get_transaction method
+        tx = await electrs.get_transaction(txid, verbose=True)
+        result["get_tx_type"] = type(tx).__name__ if tx else "None"
+        result["get_tx_is_dict"] = isinstance(tx, dict)
+        if isinstance(tx, dict):
+            result["get_tx_keys"] = list(tx.keys())
+            result["get_tx_has_vout"] = "vout" in tx
+    except Exception as e:
+        result["get_tx_error"] = f"{type(e).__name__}: {e}"
+    
+    return result
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket for live updates."""

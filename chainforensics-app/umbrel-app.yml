@@ -2,7 +2,7 @@ manifestVersion: 1
 id: chainforensics-app
 category: bitcoin
 name: ChainForensics
-version: "1.0.4"
+version: "1.2.0"
 tagline: Bitcoin blockchain analysis & privacy scoring
 description: >-
   ChainForensics is a privacy-focused Bitcoin blockchain analysis tool that runs 
@@ -45,6 +45,7 @@ dependencies:
 repo: https://github.com/manic-startup/chainforensics-umbrel
 support: https://github.com/manic-startup/chainforensics-umbrel
 port: 3010
+icon: https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/icon.svg
 gallery:
   - 1.jpg
   - 2.jpg
@@ -54,6 +55,9 @@ defaultUsername: ""
 defaultPassword: ""
 torOnly: false
 releaseNotes: >-
-  v1.0.4 - Fixed buffer limit error for addresses with many transactions. Increased 
-  Electrs connection buffer from 64KB to 16MB. Increased read timeout to 60s. Fixes 
-  'Separator is not found, and chunk exceed the limit' errors in UTXO Tracing and Timeline.
+  v1.2.0 - Fixed critical Electrs 'verbose mode' bug. Detected that Electrs sometimes 
+  returns non-verbose responses (only height/hex) when verbose=True is requested. 
+  Now auto-detects this broken state, forces reconnection, and retries. Health check 
+  now probes actual transaction fetching to detect degraded state. UI shows "Degraded" 
+  status with warning when Electrs verbose mode fails. Added diagnostic endpoint 
+  /api/v1/electrs-test/{txid} for troubleshooting.

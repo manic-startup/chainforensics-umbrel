@@ -15,8 +15,14 @@ class Settings(BaseSettings):
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     API_PORT: int = int(os.getenv("API_PORT", "3000"))
     
-    # CORS - Allow all origins for Umbrel compatibility
-    CORS_ORIGINS: List[str] = ["*"]
+    # CORS - LAN only by default
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:8080",
+        "http://localhost:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:3000",
+        "http://chainforensics-web:80",
+    ]
     
     # Bitcoin Core RPC
     BITCOIN_RPC_HOST: str = os.getenv("BITCOIN_RPC_HOST", "umbrel.local")

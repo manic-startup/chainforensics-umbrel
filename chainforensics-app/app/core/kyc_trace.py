@@ -204,6 +204,8 @@ class KYCPrivacyTracer:
     MAX_QUEUE_SIZE = 1000
     COINJOIN_THRESHOLD = 0.7  # Score above this = CoinJoin
     MAX_COINJOINS_BEFORE_COLD = 2  # Stop tracing after 2nd CoinJoin
+    MAX_CONSECUTIVE_ELECTRS_FAILURES = 3  # Stop using Electrs after 3 failures (was 5)
+    MAX_TRACE_TIME_SECONDS = 60  # 60 second overall timeout (was 240s)
     
     def __init__(self, rpc: BitcoinRPC = None):
         self.rpc = rpc or get_rpc()
@@ -429,7 +431,11 @@ class KYCPrivacyTracer:
             return None
         
         try:
-            history = await electrs.get_history(address)
+            # Add timeout to prevent hanging on large addresses
+            history = await asyncio.wait_for(
+                electrs.get_history(address),
+                timeout=20.0  # 20 second timeout for history lookup (was 60s)
+            )
             
             # Check if history is valid
             if not history or not isinstance(history, list):
@@ -452,8 +458,23 @@ class KYCPrivacyTracer:
                     continue
             
             return None
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout finding spending tx for {txid}:{vout}")
+            # Force reconnection after timeout - the connection is likely corrupted
+            logger.warning("Forcing Electrs reconnection due to timeout")
+            try:
+                await electrs.disconnect()
+            except:
+                pass
+            self._electrs_failures = getattr(self, '_electrs_failures', 0) + 1
+            return None
         except Exception as e:
             logger.warning(f"Error finding spending tx for {txid}:{vout}: {e}")
+            # Force reconnection after any exception too
+            try:
+                await electrs.disconnect()
+            except:
+                pass
             # Track this failure for reporting
             self._electrs_failures = getattr(self, '_electrs_failures', 0) + 1
             return None
@@ -532,8 +553,16 @@ class KYCPrivacyTracer:
         destinations: List[ProbableDestination] = []
         tx_count = 0
         coinjoin_txids: Set[str] = set()
+        consecutive_electrs_failures = 0
+        electrs_disabled = False
         
         while queue and tx_count < self.MAX_TRANSACTIONS:
+            # Check overall timeout
+            elapsed = (datetime.utcnow() - start_time).total_seconds()
+            if elapsed > self.MAX_TRACE_TIME_SECONDS:
+                result.warnings.append(f"Trace timeout ({self.MAX_TRACE_TIME_SECONDS}s) reached - returning partial results")
+                break
+            
             if len(queue) > self.MAX_QUEUE_SIZE:
                 result.warnings.append("Queue size exceeded, some paths truncated")
                 queue = queue[:self.MAX_QUEUE_SIZE]
@@ -667,10 +696,11 @@ class KYCPrivacyTracer:
                 result.total_traced_sats += value_sats
             else:
                 # Spent - try to find where it went
-                if electrs and address:
+                if electrs and address and not electrs_disabled:
                     spending_txid = await self._find_spending_tx(current_txid, current_vout, address)
                     
                     if spending_txid:
+                        consecutive_electrs_failures = 0  # Reset on success
                         spending_tx = await self._get_transaction(spending_txid)
                         if spending_tx and isinstance(spending_tx, dict):
                             # Add all outputs of spending tx to queue
@@ -686,6 +716,14 @@ class KYCPrivacyTracer:
                                         out_value
                                     ))
                     else:
+                        # Electrs lookup failed
+                        consecutive_electrs_failures += 1
+                        if consecutive_electrs_failures >= self.MAX_CONSECUTIVE_ELECTRS_FAILURES:
+                            electrs_disabled = True
+                            result.warnings.append(
+                                f"Electrs disabled after {consecutive_electrs_failures} consecutive failures"
+                            )
+                        
                         # Spent but can't find spending tx
                         conf_score, reasoning = self._calculate_path_confidence(current_path, start_value)
                         reasoning.append("UTXO spent but spending transaction not found")

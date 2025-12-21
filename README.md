@@ -12,7 +12,7 @@ This is a community app store for Umbrel containing ChainForensics - a privacy-f
 4. Select **"Community App Stores"**
 5. Enter this URL:
    ```
-   https://github.com/YOUR-USERNAME/chainforensics-umbrel
+   https://github.com/manic-startup/chainforensics-umbrel
    ```
 6. Click **"Add"**
 

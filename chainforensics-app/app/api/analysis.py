@@ -49,16 +49,25 @@ async def trace_forward(
     
     Returns the trace graph with all intermediate transactions.
     """
+    logger.info(f"=== API trace_forward CALLED === txid={txid[:16]}..., vout={vout}, max_depth={max_depth}")
     try:
         tracer = get_tracer()
+        logger.info("API trace_forward: Calling tracer.trace_forward()...")
         result = await tracer.trace_forward(txid, vout, max_depth)
         
-        return result.to_dict()
+        logger.info(f"API trace_forward: Trace completed, converting to dict...")
+        result_dict = result.to_dict()
+        
+        logger.info(f"API trace_forward: Returning response with {len(result_dict.get('nodes', []))} nodes")
+        return result_dict
         
     except BitcoinRPCError as e:
+        logger.error(f"API trace_forward: BitcoinRPCError: {e}")
         raise HTTPException(status_code=500, detail=f"Bitcoin RPC error: {e}")
     except Exception as e:
-        logger.error(f"Error tracing forward {txid}:{vout}: {e}")
+        logger.error(f"API trace_forward: EXCEPTION: {type(e).__name__}: {e}")
+        import traceback
+        logger.error(f"API trace_forward: Traceback:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
