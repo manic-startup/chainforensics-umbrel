@@ -101,4 +101,4 @@ If you find this useful, consider buying me a drink! Bitcoin address is availabl
 
 ## 📄 License
 
-MIT License
+GNU Affero General Public License v3.0
