@@ -1,10 +1,9 @@
-manifestVersion: 1.1
-id: chainforensics
-name: ChainForensics
-tagline: Enterprise-grade Bitcoin blockchain analysis - 100% local, zero data leakage
+manifestVersion: 1
+id: chainforensics-app
 category: bitcoin
+name: ChainForensics
 version: "2.1.0"
-port: 8089
+tagline: Enterprise-grade Bitcoin blockchain analysis - 100% local, zero data leakage
 description: >-
   ChainForensics is a privacy-focused UTXO forensics platform that performs
   enterprise-grade blockchain analysis entirely on your local network. All
@@ -33,28 +32,30 @@ description: >-
 
   - Bitcoin Core with txindex=1 (enabled by default on Umbrel)
 
-  - Optional: Fulcrum for enhanced address lookups and forward tracing
+  - Electrs (highly recommended) - Required for address lookups, balance checking, and forward UTXO tracing
 
 
   This tool helps you understand your Bitcoin privacy posture using the same
   techniques employed by commercial blockchain analytics firms.
 developer: ChainForensics
 website: https://github.com/manic-startup/chainforensics-umbrel
-submitter: ChainForensics
-submission: hhttps://github.com/manic-startup/chainforensics-umbrel
+dependencies:
+  - bitcoin
+  - electrs
 repo: https://github.com/manic-startup/chainforensics-umbrel
 support: https://github.com/manic-startup/chainforensics-umbrel
+port: 3010
 icon: https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/icon.svg
 gallery:
   - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF1.jpg
   - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF2.jpg
   - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF3.jpg
-releaseNotes: >-
-  Initial Umbrel App Store release with full feature set including
-  commercial-grade privacy analysis, graph analytics, and KYC tracing.
-dependencies:
-  - bitcoin
-  - fulcrum
+path: ""
+defaultUsername: ""
 defaultPassword: ""
 torOnly: false
-permissions: []
+releaseNotes: >-
+  v2.1.0 - Major upgrade with enterprise-grade features: Commercial privacy
+  scoring with 8-category analysis, Graph analytics with Louvain community
+  detection and PageRank, Wallet fingerprinting, and enhanced CoinJoin
+  detection for Wasabi v2/WabiSabi.
