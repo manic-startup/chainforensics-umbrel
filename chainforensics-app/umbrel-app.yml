@@ -1,0 +1,41 @@
+manifestVersion: 1
+id: chainforensics
+name: ChainForensics
+tagline: Privacy-focused Bitcoin blockchain analysis
+category: bitcoin
+version: "1.2.0"
+port: 80
+description: >-
+  Enterprise-grade Bitcoin blockchain analysis platform with privacy-focused 
+  UTXO forensics. Features include transaction analysis, UTXO tracing, 
+  CoinJoin detection (Whirlpool, Wasabi, JoinMarket), KYC privacy checking, 
+  advanced cluster analysis with Union-Find algorithm, enhanced UTXO privacy 
+  rating, exchange proximity analysis with 100+ exchanges, entity recognition, 
+  risk intelligence, and prioritized recommendations.
+developer: ChainForensics
+website: https://github.com/chainforensics
+submitter: ChainForensics
+submission: https://github.com/chainforensics
+repo: https://github.com/chainforensics
+support: https://github.com/chainforensics/issues
+gallery:
+  - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF1.jpg
+  - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF2.jpg
+  - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF3.jpg
+releaseNotes: >-
+  v1.2.0 Phase 1 MVP Release:
+  - Entity recognition with known wallet identification
+  - Risk intelligence with threat level assessment
+  - Timestamps for all traced transactions
+  - Prioritized recommendations for privacy improvement
+  - Label Manager tool with full CRUD operations
+  - Advanced cluster analysis using Union-Find algorithm
+  - Enhanced UTXO privacy rating with 7 commercial-grade heuristics
+  - Exchange proximity analysis with 100+ exchange addresses
+  - All Phase 1 MVP UI improvements and tooltips
+dependencies:
+  - bitcoin
+  - fulcrum
+path: ""
+defaultUsername: ""
+defaultPassword: ""
