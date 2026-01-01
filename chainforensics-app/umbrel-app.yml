@@ -2,9 +2,8 @@ manifestVersion: 1.1
 id: chainforensics
 name: ChainForensics
 tagline: Enterprise-grade Bitcoin blockchain analysis - 100% local, zero data leakage
-icon: https://raw.githubusercontent.com/chainforensics/chainforensics-umbrel/main/icon.svg
 category: bitcoin
-version: "3.1.0"
+version: "2.1.0"
 port: 8089
 description: >-
   ChainForensics is a privacy-focused UTXO forensics platform that performs
@@ -40,18 +39,22 @@ description: >-
   This tool helps you understand your Bitcoin privacy posture using the same
   techniques employed by commercial blockchain analytics firms.
 developer: ChainForensics
-website: https://github.com/chainforensics/chainforensics
-repo: https://github.com/chainforensics/chainforensics
-support: https://github.com/chainforensics/chainforensics/issues
+website: https://github.com/manic-startup/chainforensics-umbrel
+submitter: ChainForensics
+submission: hhttps://github.com/manic-startup/chainforensics-umbrel
+repo: https://github.com/manic-startup/chainforensics-umbrel
+support: https://github.com/manic-startup/chainforensics-umbrel
+icon: https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/icon.svg
 gallery:
-  - https://raw.githubusercontent.com/chainforensics/chainforensics-umbrel/main/gallery/dashboard.png
-  - https://raw.githubusercontent.com/chainforensics/chainforensics-umbrel/main/gallery/privacy-score.png
-  - https://raw.githubusercontent.com/chainforensics/chainforensics-umbrel/main/gallery/graph-view.png
+  - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF1.jpg
+  - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF2.jpg
+  - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF3.jpg
 releaseNotes: >-
   Initial Umbrel App Store release with full feature set including
   commercial-grade privacy analysis, graph analytics, and KYC tracing.
 dependencies:
   - bitcoin
+  - fulcrum
 defaultPassword: ""
 torOnly: false
 permissions: []
