@@ -47,9 +47,9 @@ support: https://github.com/manic-startup/chainforensics-umbrel
 port: 3010
 icon: https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/icon.svg
 gallery:
-  - 1.jpg
-  - 2.jpg
-  - 3.jpg
+  - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF1.jpg
+  - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF2.jpg
+  - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF3.jpg
 path: ""
 defaultUsername: ""
 defaultPassword: ""
