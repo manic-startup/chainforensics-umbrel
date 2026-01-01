@@ -4,7 +4,7 @@ name: ChainForensics
 tagline: Privacy-focused Bitcoin blockchain analysis
 category: bitcoin
 version: "1.2.0"
-port: 80
+port: 3010
 description: >-
   Enterprise-grade Bitcoin blockchain analysis platform with privacy-focused 
   UTXO forensics. Features include transaction analysis, UTXO tracing, 
@@ -13,11 +13,12 @@ description: >-
   rating, exchange proximity analysis with 100+ exchanges, entity recognition, 
   risk intelligence, and prioritized recommendations.
 developer: ChainForensics
-website: https://github.com/chainforensics
+website: https://github.com/manic-startup/chainforensics-umbrel
 submitter: ChainForensics
-submission: https://github.com/chainforensics
-repo: https://github.com/chainforensics
-support: https://github.com/chainforensics/issues
+submission: hhttps://github.com/manic-startup/chainforensics-umbrel
+repo: https://github.com/manic-startup/chainforensics-umbrel
+support: https://github.com/manic-startup/chainforensics-umbrel
+icon: https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/icon.svg
 gallery:
   - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF1.jpg
   - https://raw.githubusercontent.com/manic-startup/chainforensics-umbrel/main/chainforensics-app/CF2.jpg
