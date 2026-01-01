@@ -1,0 +1,57 @@
+manifestVersion: 1.1
+id: chainforensics
+name: ChainForensics
+tagline: Enterprise-grade Bitcoin blockchain analysis - 100% local, zero data leakage
+icon: https://raw.githubusercontent.com/chainforensics/chainforensics-umbrel/main/icon.svg
+category: bitcoin
+version: "3.1.0"
+port: 8089
+description: >-
+  ChainForensics is a privacy-focused UTXO forensics platform that performs
+  enterprise-grade blockchain analysis entirely on your local network. All
+  analysis happens on your LAN using your Bitcoin node - no external APIs,
+  no data leakage, complete privacy.
+
+
+  Key Features:
+
+  - UTXO Tracing: Track funds forward and backward through the blockchain
+
+  - CoinJoin Detection: Identify Whirlpool, Wasabi v1/v2, JoinMarket, PayJoin
+
+  - Commercial-Grade Privacy Scoring: 8-category analysis rivaling Chainalysis
+
+  - Graph Analytics: Louvain community detection, PageRank hub analysis
+
+  - KYC Privacy Check: Simulate adversarial tracing from exchange withdrawals
+
+  - Temporal & Value Fingerprinting: Detect timing attacks and amount tracking
+
+  - Wallet Fingerprinting: Identify wallet software patterns
+
+
+  Requirements:
+
+  - Bitcoin Core with txindex=1 (enabled by default on Umbrel)
+
+  - Optional: Fulcrum for enhanced address lookups and forward tracing
+
+
+  This tool helps you understand your Bitcoin privacy posture using the same
+  techniques employed by commercial blockchain analytics firms.
+developer: ChainForensics
+website: https://github.com/chainforensics/chainforensics
+repo: https://github.com/chainforensics/chainforensics
+support: https://github.com/chainforensics/chainforensics/issues
+gallery:
+  - https://raw.githubusercontent.com/chainforensics/chainforensics-umbrel/main/gallery/dashboard.png
+  - https://raw.githubusercontent.com/chainforensics/chainforensics-umbrel/main/gallery/privacy-score.png
+  - https://raw.githubusercontent.com/chainforensics/chainforensics-umbrel/main/gallery/graph-view.png
+releaseNotes: >-
+  Initial Umbrel App Store release with full feature set including
+  commercial-grade privacy analysis, graph analytics, and KYC tracing.
+dependencies:
+  - bitcoin
+defaultPassword: ""
+torOnly: false
+permissions: []

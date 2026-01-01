@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="chainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f7931a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffab40;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4fc3f7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#29b6f6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="250" fill="url(#bgGrad)" stroke="#2d3748" stroke-width="4"/>
+
+  <!-- Chain/Graph network lines -->
+  <g stroke="url(#chainGrad)" stroke-width="4" fill="none" opacity="0.8">
+    <!-- Central connections -->
+    <line x1="256" y1="180" x2="160" y2="280"/>
+    <line x1="256" y1="180" x2="352" y2="280"/>
+    <line x1="160" y1="280" x2="256" y2="360"/>
+    <line x1="352" y1="280" x2="256" y2="360"/>
+
+    <!-- Outer connections -->
+    <line x1="160" y1="280" x2="100" y2="220"/>
+    <line x1="352" y1="280" x2="412" y2="220"/>
+    <line x1="256" y1="360" x2="180" y2="420"/>
+    <line x1="256" y1="360" x2="332" y2="420"/>
+
+    <!-- Additional network lines -->
+    <line x1="256" y1="180" x2="256" y2="120"/>
+    <line x1="100" y1="220" x2="80" y2="160"/>
+    <line x1="412" y1="220" x2="432" y2="160"/>
+  </g>
+
+  <!-- Network nodes -->
+  <g fill="url(#nodeGrad)">
+    <!-- Main center node (Bitcoin symbol placeholder) -->
+    <circle cx="256" cy="180" r="28" fill="url(#chainGrad)"/>
+
+    <!-- Secondary nodes -->
+    <circle cx="160" cy="280" r="22"/>
+    <circle cx="352" cy="280" r="22"/>
+    <circle cx="256" cy="360" r="22"/>
+
+    <!-- Tertiary nodes -->
+    <circle cx="100" cy="220" r="16"/>
+    <circle cx="412" cy="220" r="16"/>
+    <circle cx="180" cy="420" r="14"/>
+    <circle cx="332" cy="420" r="14"/>
+    <circle cx="256" cy="120" r="14"/>
+    <circle cx="80" cy="160" r="12"/>
+    <circle cx="432" cy="160" r="12"/>
+  </g>
+
+  <!-- Bitcoin B symbol on main node -->
+  <g transform="translate(256, 180)">
+    <text x="0" y="8" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#1a1a2e">B</text>
+  </g>
+
+  <!-- Magnifying glass overlay (forensics symbol) -->
+  <g transform="translate(340, 100)" opacity="0.95">
+    <circle cx="0" cy="0" r="35" fill="none" stroke="#4fc3f7" stroke-width="6"/>
+    <line x1="24" y1="24" x2="50" y2="50" stroke="#4fc3f7" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="0" cy="0" r="20" fill="none" stroke="#4fc3f7" stroke-width="2" stroke-dasharray="4,4"/>
+  </g>
+
+  <!-- Shield accent (privacy/security) -->
+  <g transform="translate(120, 90)" opacity="0.9">
+    <path d="M0,-25 L20,-15 L20,10 C20,25 0,35 0,35 C0,35 -20,25 -20,10 L-20,-15 Z"
+          fill="none" stroke="#4ade80" stroke-width="3"/>
+    <path d="M-8,0 L-2,8 L10,-8" fill="none" stroke="#4ade80" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
