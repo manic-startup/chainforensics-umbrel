@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     
     # Fulcrum (Electrum Protocol Server)
     FULCRUM_HOST: str = os.getenv("FULCRUM_HOST", "")
-    FULCRUM_PORT: int = int(os.getenv("FULCRUM_PORT", "50001"))
+    FULCRUM_PORT: int = int(os.getenv("FULCRUM_PORT", "50002"))
     
     # Mempool (optional)
     MEMPOOL_HOST: str = os.getenv("MEMPOOL_HOST", "")
