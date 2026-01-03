@@ -94,7 +94,7 @@ async function checkHealth() {
                 el.style.color = 'var(--accent-orange)';
                 if (warningEl) {
                     warningEl.style.display = 'block';
-                    warningEl.textContent = '⚠️ Verbose mode not working - restart Fulcrum';
+                    warningEl.textContent = '⚠️ Verbose mode not working - restart Fulcrum or wait a few seconds';
                 }
             } else if (fulcrum.status === 'not_configured') {
                 el.textContent = 'Not configured';
