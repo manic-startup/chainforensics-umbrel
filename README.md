@@ -41,7 +41,7 @@ Install from the Umbrel App Store, or manually:
 cd ~/umbrel/app-data
 git clone https://github.com/chainforensics/chainforensics-umbrel
 cd chainforensics-umbrel
-~/umbrel/scripts/app install chainforensics-app
+~/umbrel/scripts/app install chainforensics
 ```
 
 ## Privacy
